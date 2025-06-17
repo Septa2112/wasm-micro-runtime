@@ -850,7 +850,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                         goto fail;
                     }
                     wasm_set_refheaptype_typeidx(&cur_ref_type.ref_ht_typeidx,
-                                                 true, heap_type);
+                                                 false, heap_type);
                     type1 = cur_ref_type.ref_type;
                 }
                 else {
