@@ -1754,6 +1754,38 @@
                 "stdout content": "",
                 "description": "no sanitizer 'heap-buffer-overflow'"
             }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                4013
+            ],
+            "runtime": "iwasm-default",
+            "file": "program.wasm",
+            "mode": "interp",
+            "options": "",
+            "argument": "",
+            "expected return": {
+                "ret code": 255,
+                "stdout content": "WASM module load failed: unknown global 0",
+                "description": "expected pass validation in WASM 3.0"
+            }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                4014
+            ],
+            "runtime": "iwasm-default",
+            "file": "program.wasm",
+            "mode": "interp",
+            "options": "",
+            "argument": "",
+            "expected return": {
+                "ret code": 255,
+                "stdout content": "Exception: out of bounds table access",
+                "description": "expected out of bounds table access"
+            }
         }
     ]
 }
