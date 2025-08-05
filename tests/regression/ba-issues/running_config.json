@@ -1782,7 +1782,7 @@
             "options": "",
             "argument": "",
             "expected return": {
-                "ret code": 255,
+                "ret code": 1,
                 "stdout content": "Exception: out of bounds table access",
                 "description": "expected out of bounds table access"
             }
