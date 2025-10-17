@@ -989,6 +989,14 @@ fail:
             /* dst offsets */                                              \
             dst_offsets = (uint16 *)frame_ip;                              \
             frame_ip += arity * sizeof(uint16);                            \
+            int16 src = src_offsets[0];                                    \
+            uint16 dst = dst_offsets[0];                                   \
+            if (src != (int16)dst                                          \
+                && ((src < (int16)dst && (int16)dst < src + 4)             \
+                    || ((int16)dst < src && src < (int16)dst + 4))) {      \
+                wasm_set_exception(module, "v128 branch partial overlap"); \
+                goto got_exception;                                        \
+            }                                                              \
             if (arity == 1) {                                              \
                 if (cells[0] == 1) {                                       \
                     frame_lp[dst_offsets[0]] = frame_lp[src_offsets[0]];   \
@@ -1644,6 +1652,166 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #endif
             recover_br_info:
                 RECOVER_BR_INFO();
+                // do {
+                //     uint32 arity;
+                //     /* read arity */
+                //     arity = read_uint32(frame_ip);
+                //     if (arity) {
+                //         uint32 total_cell;
+                //         uint16 *dst_offsets = NULL;
+                //         uint8 *cells;
+                //         int16 *src_offsets = NULL;
+                //         /* read total cell num */
+                //         total_cell = read_uint32(frame_ip);
+                //         /* cells */
+                //         cells = (uint8 *)frame_ip;
+
+                //         /* debug dump */
+                //         fprintf(stderr, "[DBG BR] arity=%u, total_cell=%u,
+                //         frame_ip=%p\n",
+                //                 arity, total_cell, (void*)frame_ip);
+
+                //         /* dump raw bytes for the upcoming area (first 32
+                //         bytes) */ for (int i = 0; i < 32; i++) {
+                //             fprintf(stderr, "%02x ", frame_ip[i] & 0xff);
+                //             if ((i & 15) == 15) fprintf(stderr, "\n");
+                //         }
+                //         fprintf(stderr, "\n");
+
+                //         frame_ip += arity * CELL_SIZE;
+                //         // frame_ip += total_cell * CELL_SIZE;
+                //         /* src offsets */
+                //         src_offsets = (int16 *)frame_ip;
+                //         frame_ip += arity * sizeof(int16);
+                //         /* dst offsets */
+                //         dst_offsets = (uint16 *)frame_ip;
+                //         frame_ip += arity * sizeof(uint16);
+
+                //                                 fprintf(stderr, "[DBG BR]
+                //                                 cells:");
+                //         for (uint32 i = 0; i < arity; ++i) fprintf(stderr, "
+                //         %u", (unsigned)cells[i]); fprintf(stderr, "\n");
+
+                //         fprintf(stderr, "[DBG BR] src_offsets:");
+                //         for (uint32 i = 0; i < arity; ++i) fprintf(stderr, "
+                //         %d", (int)src_offsets[i]); fprintf(stderr, "\n");
+
+                //         fprintf(stderr, "[DBG BR] dst_offsets:");
+                //         for (uint32 i = 0; i < arity; ++i) fprintf(stderr, "
+                //         %u", (unsigned)dst_offsets[i]); fprintf(stderr,
+                //         "\n");
+
+                //         if (arity == 1) {
+                //             if (cells[0] == 1) {
+                //                 frame_lp[dst_offsets[0]] =
+                //                     frame_lp[src_offsets[0]];
+                //                 /* Ignore constants because they are not
+                //                  * reference */
+                //                 if (src_offsets[0] >= 0) {
+                //                     CLEAR_FRAME_REF((unsigned)(src_offsets[0]));
+                //                     SET_FRAME_REF(dst_offsets[0]);
+                //                 }
+                //             }
+                //             else if (cells[0] == 2) {
+                //                 PUT_I64_TO_ADDR(frame_lp + dst_offsets[0],
+                //                                 GET_I64_FROM_ADDR(
+                //                                     frame_lp +
+                //                                     src_offsets[0]));
+                //                 /* Ignore constants because they are not
+                //                  * reference */
+                //                 if (src_offsets[0] >= 0) {
+                //                     CLEAR_FRAME_REF((unsigned)src_offsets[0]);
+                //                     CLEAR_FRAME_REF(
+                //                         (unsigned)(src_offsets[0] + 1));
+                //                     SET_FRAME_REF((unsigned)dst_offsets[0]);
+                //                     SET_FRAME_REF(
+                //                         (unsigned)(dst_offsets[0] + 1));
+                //                 }
+                //             }
+                //             else if (cells[0] == 4) {
+                //                 int16 src = src_offsets[0];
+                //                 uint16 dst = dst_offsets[0];
+                //                 /* v128 占 4 个 cell，检测部分重叠（需要
+                //                 memmove 语义） */ bool need_safe =
+                //                     (src >= 0) &&
+                //                     src != (int16)dst &&
+                //                     ((src < (int16)dst && (int16)dst < src +
+                //                     4) ||
+                //                      ((int16)dst < src && src < (int16)dst +
+                //                      4));
+
+                //                 if (need_safe) {
+                //                     /* 部分重叠，使用 memmove 语义 */
+                //                     void *srcp = frame_lp + src;
+                //                     void *dstp = frame_lp + dst;
+                //                     fprintf(stderr, "[DBG BR] v128 partial
+                //                     overlap, use memmove semantics, srcp=%p
+                //                     dstp=%p diff=%td\n",
+                //                             srcp, dstp, (char*)dstp -
+                //                             (char*)srcp);
+                //                     // memmove(dstp, srcp, 16);
+                //                     wasm_set_exception(module,
+                //                                        "wasm br with v128
+                //                                        partial overlap not
+                //                                        supported yet");
+                //                     goto got_exception;
+                //                 }
+                //                 else {
+                //                     /* 无重叠或完全重叠，使用普通赋值语义 */
+                //                     void *srcp = frame_lp + src;
+                //                     void *dstp = frame_lp + dst;
+                //                     fprintf(stderr, "[DBG BR] v128 no overlap
+                //                     or complete overlap, use normal copy
+                //                     semantics, srcp=%p dstp=%p diff=%td\n",
+                //                             srcp, dstp, (char*)dstp -
+                //                             (char*)srcp);
+                //                     PUT_V128_TO_ADDR(
+                //                         frame_lp + dst,
+                //                         GET_V128_FROM_ADDR(frame_lp + src));
+                //                 }
+                //                 // /* Ignore constants because they are not
+                //                 //  * reference */
+
+                //                 // void *srcp = frame_lp + src_offsets[0];
+                //                 // void *dstp = frame_lp + dst_offsets[0];
+                //                 // fprintf(stderr, "[DBG BR] srcp=%p dstp=%p
+                //                 diff=%td\n",
+                //                 //         srcp, dstp, (char*)dstp -
+                //                 (char*)srcp);
+                //                 // PUT_V128_TO_ADDR(
+                //                 //     frame_lp + dst_offsets[0],
+                //                 //     GET_V128_FROM_ADDR(frame_lp
+                //                 //                        + src_offsets[0]));
+                //                 /* Ignore constants because they are not
+                //                  * reference */
+                //                 if (src_offsets[0] >= 0) {
+                //                     CLEAR_FRAME_REF((unsigned)src_offsets[0]);
+                //                     CLEAR_FRAME_REF(
+                //                         (unsigned)(src_offsets[0] + 1));
+                //                     CLEAR_FRAME_REF(
+                //                         (unsigned)(src_offsets[0] + 2));
+                //                     CLEAR_FRAME_REF(
+                //                         (unsigned)(src_offsets[0] + 3));
+                //                     SET_FRAME_REF((unsigned)dst_offsets[0]);
+                //                     SET_FRAME_REF(
+                //                         (unsigned)(dst_offsets[0] + 1));
+                //                     SET_FRAME_REF(
+                //                         (unsigned)(dst_offsets[0] + 2));
+                //                     SET_FRAME_REF(
+                //                         (unsigned)(dst_offsets[0] + 3));
+                //                 }
+                //             }
+                //         }
+                //         else {
+                //             if (!copy_stack_values(module, frame_lp, arity,
+                //                                    frame_ref, total_cell,
+                //                                    cells, src_offsets,
+                //                                    dst_offsets))
+                //                 goto got_exception;
+                //         }
+                //     }
+                //     frame_ip = (uint8 *)LOAD_PTR(frame_ip);
+                // } while (0);
                 HANDLE_OP_END();
             }
 
